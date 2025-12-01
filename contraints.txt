@@ -1,0 +1,17 @@
+Here are the specific constraints for this Pilot Phase:
+
+**1. Volume (The Scope):**
+* **Target Cap:** ~3,000 distinct nodes.
+* **Entry Points:** Start crawling from the **'Science Fiction'** and **'Video Game Tropes'** main index pages.
+* **Stopping Criteria:** Please implement a hard cap. Once the graph hits 3,000 unique nodes, the script should stop adding new ones and finalize the edges/embeddings for the existing set.
+
+**2. Relationship Categories (The NLP Logic):**
+For this V1, I want to keep the classification simple. Please map the context to this specific Enum list:
+* `is_a` (Context: "subtrope", "type of", "specialized version")
+* `opposes` (Context: "aversion", "subversion", "opposite", "contrast")
+* `associated_with` (Default/Catch-all for "see also", "related", or if no specific context is found)
+
+**3. Delivery:**
+* I am looking for the Python source code + the JSON output.
+
+If this scope works for you, please send over the offer."

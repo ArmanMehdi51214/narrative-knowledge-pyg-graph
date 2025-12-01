@@ -1,0 +1,97 @@
+The Full Requirements Document
+
+
+# Technical Specification: The Narrative Graph Pipeline (NLP Enhanced)
+
+**Objective:** Create a semantic Knowledge Graph of narrative tropes, enriched with relationship types and vector embeddings.
+
+## 1\. Project Overview
+
+We are building a dataset to train future AI agents on "Narrative Causality." We need to ingest data from **TV Tropes**, but rather than unstructured text, we require a **Directed Graph** that captures how concepts relate to one another.
+
+## 2\. Scope of Work
+
+### Module A: The Crawler (Polite & Targeted)
+
+  * **Target:** TV Tropes (Start with `Science Fiction` and `Video Game` indices).
+  * **Volume:** \~3,000 Nodes (Pilot Phase).
+  * **Constraint:** Must respect `robots.txt` delays to prevent IP bans.
+
+### Module B: The Semantic Parser (Feature Extraction)
+
+The script must extract two specific ML-ready features during the scrape:
+
+**1. Semantic Edge Classification (The NLP Task)**
+Don't just capture links; capture the *context*. Use simple NLP heuristics (Regex or spaCy) on the text surrounding the link to infer the `relation`:
+
+  * *Context:* "is a subtrope of", "a type of" $\rightarrow$ **Relation:** `is_a`
+  * *Context:* "contrasts with", "subversion of", "opposite" $\rightarrow$ **Relation:** `opposes`
+  * *Default:* If context is neutral $\rightarrow$ **Relation:** `associated_with`
+
+**2. Vector Embeddings (The Retrieval Task)**
+Process the `summary` text of each node through a local, open-source model (Recommended: `sentence-transformers/all-MiniLM-L6-v2`) to generate a dense vector.
+
+### Module C: Validation (GNN Prep)
+
+Use `NetworkX` within the script to validate the output:
+
+  * Remove "Orphan Nodes" (Nodes with 0 edges).
+  * Ensure the graph structure is valid JSON.
+
+## 3\. The Deliverable Schema (The "Truth")
+
+The output must be a single `.json` file strictly adhering to this schema.
+
+```json
+{
+  "meta": {
+    "source": "TV Tropes",
+    "root_categories": ["Science Fiction", "Video Game Tropes"],
+    "date_scraped": "2025-11-30",
+    "scraper_version": "v2_nlp_enhanced",
+    "embedding_model": "all-MiniLM-L6-v2"
+  },
+  "nodes": [
+    {
+      "id": "trope_evil_empire",
+      "type": "trope",
+      "label": "The Evil Empire",
+      "url": "https://tvtropes.org/pmwiki/...",
+      "summary": "A powerful, authoritarian regime that serves as the primary antagonist.",
+      "tags": ["Villain", "Government", "Sci-Fi"],
+      "embedding": [0.045, -0.12, 0.98, ...]  // The 384-dim vector
+    }
+  ],
+  "edges": [
+    {
+      "source": "trope_evil_empire",
+      "target": "trope_the_resistance",
+      "weight": 1.0,
+      "relation": "opposes",               // The NLP-derived class
+      "detection_method": "summary_text"   // Where the link was found
+    },
+    {
+      "source": "trope_evil_empire",
+      "target": "trope_stormtrooper_effect",
+      "weight": 0.8,
+      "relation": "associated_with",
+      "detection_method": "related_tropes_section"
+    }
+  ]
+}
+```
+
+## 4\. Technical Requirements
+
+  * **Language:** Python 3.9+
+  * **Libraries:** `Scrapy` (or `BeautifulSoup`), `Sentence-Transformers` (HuggingFace), `NetworkX`.
+  * **Deliverables:**
+    1.  `scraper_pipeline.py` (Clean, commented source code).
+    2.  `narrative_graph.json` (The final dataset).
+    3.  `requirements.txt` (Dependencies).
+
+## 5\. Success Criteria
+
+  * **Graph Density:** The output shows a connected graph, not just a list of isolated nodes.
+  * **Schema Check:** All Nodes have `embeddings`; all Edges have `relations`.
+  * **Replicability:** I must be able to run the script on my machine to update the dataset later.
