@@ -15,9 +15,8 @@ For each entity we try to fetch:
 """
 
 LITERARY_ARCHETYPE_QID = "Q212806"
-SCIFI_THEME_QID = "Q13055555"
-VIDEOGAME_MECHANIC_QID = "Q46996652"
-
+SCIFI_THEME_QID = "Q182015"
+VIDEOGAME_MECHANIC_QID = "Q107647829"
 
 def make_root_query(root_qid: str, limit: int | None = None) -> str:
     """

@@ -16,7 +16,6 @@ from wd_api import queries
 
 logger = logging.getLogger(__name__)
 
-
 WIKIDATA_SPARQL_ENDPOINT = "https://query.wikidata.org/sparql"
 
 # IMPORTANT: always send a descriptive User-Agent for polite API use.
@@ -38,8 +37,9 @@ class WikidataClient:
         self.user_agent = user_agent
         self.timeout = timeout
 
-    # ---------- Low-level SPARQL runner ----------
-
+    # ----------------------------------------------------------------------
+    # Low-level SPARQL runner
+    # ----------------------------------------------------------------------
     def run_sparql(self, query: str) -> Dict[str, Any]:
         """
         Execute a SPARQL query and return the JSON response.
@@ -60,22 +60,14 @@ class WikidataClient:
         resp.raise_for_status()
         return resp.json()
 
-    # ---------- High-level helpers for our three roots ----------
-
+    # ----------------------------------------------------------------------
+    # High-level root fetcher for predefined QIDs
+    # ----------------------------------------------------------------------
     def fetch_entities_for_root(
         self, root_qid: str, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
-        Fetch entities under a given root QID (literary archetype, sci-fi theme,
-        or video game mechanic).
-
-        Returns a list of dicts with keys:
-        - id
-        - label
-        - description
-        - atu_index (may be None)
-        - wikipedia_title (may be None)
-        - wikipedia_url (may be None)
+        Fetch entities under a given root QID (lit archetype, sci-fi theme, etc.)
         """
         sparql = queries.make_root_query(root_qid=root_qid, limit=limit)
         data = self.run_sparql(sparql)
@@ -83,7 +75,7 @@ class WikidataClient:
         results: List[Dict[str, Any]] = []
 
         for row in data.get("results", {}).get("bindings", []):
-            entity_uri = row["entity"]["value"]  # e.g. "http://www.wikidata.org/entity/Q12345"
+            entity_uri = row["entity"]["value"]
             qid = entity_uri.rsplit("/", 1)[-1]
 
             label = row.get("entityLabel", {}).get("value", "")
@@ -94,7 +86,6 @@ class WikidataClient:
 
             wikipedia_url = None
             if wikipedia_title:
-                # Build canonical English Wikipedia URL
                 safe_title = quote(wikipedia_title.replace(" ", "_"))
                 wikipedia_url = f"https://en.wikipedia.org/wiki/{safe_title}"
 
@@ -109,18 +100,54 @@ class WikidataClient:
                 }
             )
 
-        logger.info(
-            "Fetched %d entities under root %s", len(results), root_qid
-        )
+        logger.info("Fetched %d entities under root %s", len(results), root_qid)
         return results
 
-    # Convenience wrappers
+    # ----------------------------------------------------------------------
+    # Fetch ATU folklore (independent of root QIDs)
+    # ----------------------------------------------------------------------
+    def fetch_folklore(self, limit: int = 1000) -> List[Dict[str, Any]]:
+        """
+        Fetch folktales that have an ATU index (P2540).
+        """
+        query = f"""
+        SELECT ?entity ?entityLabel ?entityDescription ?atu ?wikipediaTitle WHERE {{
+          ?entity wdt:P2540 ?atu .
 
-    def fetch_literary_archetypes(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        return self.fetch_entities_for_root(queries.LITERARY_ARCHETYPE_QID, limit=limit)
+          OPTIONAL {{
+            ?sitelink schema:about ?entity ;
+                      schema:isPartOf <https://en.wikipedia.org/> ;
+                      schema:name ?wikipediaTitle .
+          }}
 
-    def fetch_scifi_themes(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        return self.fetch_entities_for_root(queries.SCIFI_THEME_QID, limit=limit)
+          SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+        }}
+        LIMIT {limit}
+        """
 
-    def fetch_videogame_mechanics(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-        return self.fetch_entities_for_root(queries.VIDEOGAME_MECHANIC_QID, limit=limit)
+        raw = self.run_sparql(query)["results"]["bindings"]
+
+        cleaned = []
+        for row in raw:
+            cleaned.append({
+                "id": row["entity"]["value"].split("/")[-1],
+                "label": row.get("entityLabel", {}).get("value"),
+                "description": row.get("entityDescription", {}).get("value"),
+                "atu_index": row.get("atu", {}).get("value"),
+                "wikipedia_title": row.get("wikipediaTitle", {}).get("value"),
+                "wikipedia_url": None  # WikipediaClient will handle URL
+            })
+
+        return cleaned
+
+    # ----------------------------------------------------------------------
+    # Convenience wrappers for other narrative categories
+    # ----------------------------------------------------------------------
+    def fetch_literary_archetypes(self, limit: Optional[int] = None):
+        return self.fetch_entities_for_root(queries.LITERARY_ARCHETYPE_QID, limit)
+
+    def fetch_scifi_themes(self, limit: Optional[int] = None):
+        return self.fetch_entities_for_root(queries.SCIFI_THEME_QID, limit)
+
+    def fetch_videogame_mechanics(self, limit: Optional[int] = None):
+        return self.fetch_entities_for_root(queries.VIDEOGAME_MECHANIC_QID, limit)
