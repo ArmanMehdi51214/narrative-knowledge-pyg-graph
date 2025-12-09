@@ -1,41 +1,82 @@
 # run_pipeline.py
 
-from graph_builder.multi_graph_builder import MultiGraphBuilder
-from graph_builder.graph_validator import GraphValidator
+import logging
 from embeddings.embedder import EmbeddingGenerator
 from export.json_exporter import JSONExporter
 from pyg_conversion.pyg_converter import convert_to_pyg
 
-from wd_api.wikidata_client import WikidataClient
+from graph_builder.multi_graph_builder import MultiGraphBuilder
+from graph_builder.node_builder import Node   # Needed for dict→Node conversion
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-print("\n=== UNIFIED NARRATIVE GRAPH PIPELINE ===")
+# -----------------------------------------------------------
+# Utility: Convert dict node → Node dataclass (if needed)
+# -----------------------------------------------------------
+def dict_to_node(d):
+    return Node(
+        id=d["id"],
+        label=d["label"],
+        description=d["description"],
+        summary=d["summary"],
+        atu_index=d["atu_index"],
+        wikipedia_title=d["wikipedia_title"],
+        wikipedia_url=d["wikipedia_url"],
+        tags=d.get("tags", []),
+        embedding=d.get("embedding"),
+        source_genre=d.get("source_genre"),
+    )
 
-# Step 1 — Clients
-wd = WikidataClient()
-validator = GraphValidator()
-exporter = JSONExporter(output_dir="output")
-embedder = EmbeddingGenerator()
 
-# Step 2 — Multi-category unified builder
-mb = MultiGraphBuilder()
+if __name__ == "__main__":
+    print("\n=== UNIFIED NARRATIVE GRAPH PIPELINE ===")
 
-graph = mb.build_multi([
-    (wd.fetch_folklore, "ATU_Folklore", 1500),
-    (wd.fetch_scifi_themes, "SciFi_Theme", 800),
-    (wd.fetch_videogame_mechanics, "Game_Mechanic", 700)
-])
+    # ------------------------------------------------
+    # CATEGORY LIMITS (client-approved)
+    # ------------------------------------------------
+    limits = {
+        "folklore": 1500,
+        "scifi": 800,
+        "game": 700,
+    }
 
-# Step 3 — Embeddings (single pass)
-embedder.embed_nodes(graph["nodes"])
+    # ------------------------------------------------
+    # 1. BUILD MULTI-CATEGORY GRAPH
+    # ------------------------------------------------
+    builder = MultiGraphBuilder()
+    graph = builder.build(limits=limits)
 
-# Step 4 — Validate final graph
-graph = validator.validate(graph)
+    print(f"Nodes: {len(graph['nodes'])}")
+    print(f"Edges: {len(graph['edges'])}")
 
-# Step 5 — Export JSON (unified)
-exporter.export(graph, filename="narrative_graph_unified.json")
+    # ------------------------------------------------
+    # 2. SAFETY: Convert dict nodes → Node objects
+    # (Fixes 'dict has no attribute summary' issue)
+    # ------------------------------------------------
+    if graph["nodes"] and isinstance(graph["nodes"][0], dict):
+        print("⚠️ Nodes are dicts — converting back to Node dataclass...")
+        graph["nodes"] = [dict_to_node(n) for n in graph["nodes"]]
+    else:
+        print("✔ Nodes are valid Node objects.")
 
-# Step 6 — Convert to PyG
-convert_to_pyg(graph, output_dir="pyg_output_unified")
+    # ------------------------------------------------
+    # 3. EMBEDDINGS
+    # ------------------------------------------------
+    embedder = EmbeddingGenerator()
+    embedder.embed_nodes(graph["nodes"])
 
-print("\n=== PIPELINE COMPLETE: UNIFIED GRAPH READY ===")
+    # ------------------------------------------------
+    # 4. EXPORT JSON
+    # ------------------------------------------------
+    exporter = JSONExporter(output_dir="output")
+    exporter.export(graph, filename="narrative_graph_unified.json")
+
+    # ------------------------------------------------
+    # 5. PYTORCH GEOMETRIC EXPORT
+    # ------------------------------------------------
+    convert_to_pyg(graph, output_dir="pyg_output_unified")
+
+
+    print("\n=== PIPELINE COMPLETE: UNIFIED GRAPH READY ===")

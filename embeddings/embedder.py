@@ -1,11 +1,13 @@
+# embeddings/embedder.py
+
 """
 Embedding generator using SentenceTransformers (MiniLM-L6-v2).
-Nodes are plain dictionaries, not objects — this version handles dicts safely.
+Nodes are Node dataclass objects — this version handles objects safely.
 """
 
 from __future__ import annotations
 import logging
-from typing import List, Dict, Any
+from typing import List
 from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
@@ -18,30 +20,25 @@ class EmbeddingGenerator:
         self.model = SentenceTransformer(model_name)
 
     # --------------------------------------------------------
-    # Helper to extract the best available text for embedding
+    # Extract best available text for embedding
     # --------------------------------------------------------
-    def _get_text_for_node(self, node: Dict[str, Any]) -> str:
+    def _get_text_for_node(self, node) -> str:
         """
-        Node is a dict. Use summary first, fallback to description or label.
+        Node is a dataclass (object), not a dict.
+        Prefer summary → description → label.
         """
-        summary = node.get("summary")
-        description = node.get("description")
-        label = node.get("label", "")
+        if node.summary and node.summary.strip():
+            return node.summary
 
-        if summary and summary.strip():
-            return summary
-        if description and description.strip():
-            return description
-        return label  # fallback
+        if node.description and node.description.strip():
+            return node.description
+
+        return node.label or "unknown"
 
     # --------------------------------------------------------
-    # Generate embeddings for all nodes
+    # Generate embeddings for all Node objects
     # --------------------------------------------------------
-    def embed_nodes(self, nodes: List[Dict[str, Any]]) -> None:
-        """
-        Mutates each node dict by adding node["embedding"] = list[float]
-        """
-
+    def embed_nodes(self, nodes: List) -> None:
         logger.info("Preparing text for %d nodes...", len(nodes))
 
         texts = [self._get_text_for_node(node) for node in nodes]
@@ -49,8 +46,8 @@ class EmbeddingGenerator:
         logger.info("Computing embeddings... this may take a moment.")
         embeddings = self.model.encode(texts, show_progress_bar=True)
 
-        logger.info("Assigning embeddings to node dicts.")
+        logger.info("Assigning embeddings to Node objects.")
         for node, emb in zip(nodes, embeddings):
-            node["embedding"] = emb.tolist()
+            node.embedding = emb.tolist()
 
         logger.info("Embeddings added to all nodes.")

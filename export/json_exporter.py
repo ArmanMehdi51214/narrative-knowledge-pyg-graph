@@ -1,63 +1,64 @@
 # export/json_exporter.py
 
-"""
-JSON Exporter for the Narrative Knowledge Graph.
-
-Writes:
-- narrative_graph.json (full nodes + edges + meta)
-- Ensures schema compliance
-"""
-
-from __future__ import annotations
 import json
+import os
+from typing import Any, Dict, List
+from dataclasses import asdict
 import logging
-from typing import Dict, Any
-from pathlib import Path
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
 class JSONExporter:
-    """
-    Exports the validated graph to a JSON file using the strict schema.
-
-    Schema:
-    {
-      "meta": {...},
-      "nodes": [...],
-      "edges": [...]
-    }
-    """
 
     def __init__(self, output_dir: str = "output"):
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.output_dir = output_dir
+        os.makedirs(self.output_dir, exist_ok=True)
 
-    # ------------------------------------------------------------------
-    def export(self, graph: Dict[str, Any], filename: str = "narrative_graph.json"):
+    def _node_to_dict(self, node_obj):
         """
-        Export the complete graph dict to disk in strict JSON format.
+        Convert Node dataclass → plain dict.
         """
+        try:
+            return asdict(node_obj)
+        except Exception:
+            # already a dict
+            return node_obj
 
+    def _edge_to_dict(self, edge_obj):
+        """
+        Edges are already dicts, but we normalize them anyway.
+        """
+        return dict(edge_obj)
+
+    # ---------------------------------------------------------------
+    def export(self, graph: Dict[str, Any], filename: str = "graph.json"):
+        """
+        Saves the graph to a JSON file.
+        Handles Node dataclasses by converting them to dicts.
+        """
         logger.info("=== Exporting Narrative Graph to JSON ===")
 
-        filepath = self.output_dir / filename
+        nodes = graph.get("nodes", [])
+        edges = graph.get("edges", [])
+        meta = graph.get("meta", {})
 
-        # Inject top-level metadata if not present
-        if "meta" not in graph:
-            graph["meta"] = {}
+        # Convert nodes to dicts
+        node_dicts = [self._node_to_dict(n) for n in nodes]
 
-        graph["meta"].update({
-            "export_timestamp": datetime.utcnow().isoformat() + "Z",
-            "exporter_version": "1.0",
-            "total_nodes": len(graph.get("nodes", [])),
-            "total_edges": len(graph.get("edges", [])),
-        })
+        # Convert edges to dicts
+        edge_dicts = [self._edge_to_dict(e) for e in edges]
 
-        with filepath.open("w", encoding="utf-8") as f:
-            json.dump(graph, f, indent=2, ensure_ascii=False)
+        clean_graph = {
+            "nodes": node_dicts,
+            "edges": edge_dicts,
+            "meta": meta,
+        }
 
-        logger.info(f"Graph exported successfully → {filepath.resolve()}")
+        output_path = os.path.join(self.output_dir, filename)
 
-        return filepath
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(clean_graph, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Saved JSON to: {output_path}")
+        return output_path

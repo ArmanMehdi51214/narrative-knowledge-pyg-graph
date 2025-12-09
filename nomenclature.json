@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "version": "1.0"
+  },
+  "cultures": [
+    {
+      "id": "culture_nordic_ice",
+      "source_entity": "Q8458",
+      "male_names": [
+        "Bjorn",
+        "Erik",
+        "Leif",
+        "Torsten"
+      ],
+      "female_names": [
+        "Astrid",
+        "Freya",
+        "Sif"
+      ],
+      "place_names": [
+        "Frosthold",
+        "Winterdeep"
+      ]
+    },
+    {
+      "id": "culture_roman_imperial",
+      "source_entity": "Q211062",
+      "male_names": [
+        "Gaius",
+        "Lucius",
+        "Marcus"
+      ],
+      "female_names": [
+        "Aurelia",
+        "Julia",
+        "Livia"
+      ],
+      "place_names": [
+        "Imperium",
+        "Solarum"
+      ]
+    },
+    {
+      "id": "culture_hebrew_cult",
+      "source_entity": "Q1845",
+      "male_names": [
+        "Amos",
+        "David",
+        "Eli"
+      ],
+      "female_names": [
+        "Hannah",
+        "Miriam",
+        "Naomi"
+      ],
+      "place_names": [
+        "Ashdod",
+        "Zeruel"
+      ]
+    },
+    {
+      "id": "culture_cyber_high_tech",
+      "source_entity": "Q5287",
+      "male_names": [
+        "Cipher",
+        "Glitch",
+        "Neo"
+      ],
+      "female_names": [
+        "Aya",
+        "Kira",
+        "Rei"
+      ],
+      "place_names": [
+        "Chrome District",
+        "Neotokyo"
+      ]
+    },
+    {
+      "id": "culture_industrial_mech",
+      "source_entity": "Q214609",
+      "male_names": [
+        "Cobalt",
+        "Ferron",
+        "Granite"
+      ],
+      "female_names": [
+        "Beryl",
+        "Quartz"
+      ],
+      "place_names": [
+        "Cobalt Ridge",
+        "Ironhaven"
+      ]
+    }
+  ]
+}

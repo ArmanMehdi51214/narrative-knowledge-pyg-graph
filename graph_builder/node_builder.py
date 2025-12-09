@@ -1,27 +1,8 @@
 # graph_builder/node_builder.py
 
-"""
-Node Builder for Narrative Knowledge Graph.
-
-Takes raw Wikidata entities and builds normalized node dictionaries
-with:
-- id
-- label
-- description
-- summary (from Wikipedia)
-- atu_index
-- wikipedia_title
-- wikipedia_url
-- tags
-- embedding (None for now)
-- source_genre  <-- NEW FIELD (ATU_Folklore, SciFi_Theme, Game_Mechanic)
-"""
-
-from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import List, Dict, Any, Optional
 import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -37,59 +18,59 @@ class Node:
     wikipedia_url: Optional[str]
     tags: List[str]
     embedding: Optional[List[float]]
-    source_genre: str = "Unknown"   # <-- ADDED HERE
+    source_genre: str
 
 
 class NodeBuilder:
-    """
-    Converts raw Wikidata results + Wikipedia summaries
-    into unified Node dataclass objects.
-    """
 
     def __init__(self, wiki_client):
         self.wiki = wiki_client
 
-    # ------------------------------------------------------------------
-    def build_nodes(self, raw_entities: List[Dict[str, Any]]) -> List[Node]:
-        """
-        Convert raw Wikidata dict results into Node objects.
-        Wikipedia summary is fetched here.
-        """
+    def build_nodes(
+        self,
+        raw_entities: List[Dict[str, Any]],
+        source_genre: str,
+    ) -> List[Node]:
+
         nodes: List[Node] = []
 
-        for entity in raw_entities:
-            qid = entity["id"]
-            label = entity.get("label", "")
-            description = entity.get("description", "")
-            atu = entity.get("atu_index")
-            wiki_title = entity.get("wikipedia_title")
-            wiki_url = entity.get("wikipedia_url")
-            genre = entity.get("_source_genre", "Unknown")  # <-- READING GENRE SET BY MULTI-BUILDER
+        for ent in raw_entities:
+            qid = ent.get("id")
+            label = ent.get("label", "")
+            description = ent.get("description", "")
+            atu_index = ent.get("atu_index")
+            wikipedia_title = ent.get("wikipedia_title")
+            wikipedia_url = ent.get("wikipedia_url")
 
-            # --- Fetch Wikipedia summary ----------------------------------------------------
-            summary = None
-            if wiki_title:
+            # ---- FIXED PART: fetch *string* summary, not dict ----
+            summary_text: Optional[str] = None
+            if wikipedia_title:
                 try:
-                    wiki_info = self.wiki.fetch_summary(wiki_title)
-                    summary = wiki_info.get("summary")
+                    summary_data = self.wiki.fetch_summary(wikipedia_title)
+                    if isinstance(summary_data, dict):
+                        summary_text = summary_data.get("summary") or ""
+                    elif isinstance(summary_data, str):
+                        summary_text = summary_data
                 except Exception as e:
-                    logger.warning(f"Failed to fetch summary for {wiki_title}: {e}")
+                    logger.error(f"Failed to fetch summary for {label}: {e}")
+                    summary_text = ""
+            else:
+                summary_text = ""
 
-            # --- Construct Node ------------------------------------------------------------
             node = Node(
                 id=qid,
                 label=label,
                 description=description,
-                summary=summary,
-                atu_index=atu,
-                wikipedia_title=wiki_title,
-                wikipedia_url=wiki_url,
+                summary=summary_text,
+                atu_index=atu_index,
+                wikipedia_title=wikipedia_title,
+                wikipedia_url=wikipedia_url,
                 tags=[],
                 embedding=None,
-                source_genre=genre
+                source_genre=source_genre,
             )
 
             nodes.append(node)
 
-        logger.info(f"Built {len(nodes)} nodes.")
+        logger.info(f"Built {len(nodes)} nodes for category {source_genre}.")
         return nodes
